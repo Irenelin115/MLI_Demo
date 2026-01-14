@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高齡質檢保單 - 審查後台</title>
+    <style>
+        :root {
+            /* 核心色系 - 靜謐藍 */
+            --primary-color: #5e81f4;
+            --primary-light: #eef2ff;
+            --primary-hover: #4b6edb;
+            
+            --text-main: #2c3e50;
+            --text-sub: #8898aa;
+            
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            
+            /* 狀態色 */
+            --danger-color: #ff5b5b;
+            --danger-bg: #fff0f0;
+            --warning-color: #ffb100;
+            --warning-bg: #fff8e6;
+            --success-color: #2bc155;
+            --success-bg: #eafff0;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft JhengHei", sans-serif; }
+        
+        body { background-color: var(--bg-color); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; font-size: 14px; }
+
+        /* --- Icons --- */
+        .icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .icon-sm { width: 14px; height: 14px; }
+
+        /* --- Header --- */
+        .header {
+            background: var(--card-bg); height: 64px; padding: 0 24px; border-bottom: 1px solid var(--border-color);
+            display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; z-index: 10;
+        }
+        .header-left { display: flex; align-items: center; gap: 12px; }
+        .header-title { font-size: 18px; font-weight: 700; color: var(--text-main); }
+        .case-id { background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 13px; color: #64748b; }
+        
+        .risk-badge {
+            background-color: var(--danger-bg); color: var(--danger-color); padding: 6px 12px; border-radius: 6px;
+            font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(255, 91, 91, 0.2);
+        }
+
+        /* --- Player Bar --- */
+        .player-bar {
+            background: var(--card-bg); padding: 12px 24px; border-bottom: 1px solid var(--border-color);
+            display: flex; align-items: center; gap: 20px; flex-shrink: 0;
+        }
+        .btn-play {
+            width: 42px; height: 42px; border-radius: 50%; background: var(--primary-color); border: none;
+            color: white; display: flex; align-items: center; justify-content: center; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(94, 129, 244, 0.3); transition: all 0.2s;
+        }
+        .btn-play:hover { transform: scale(1.05); background: var(--primary-hover); }
+        
+        .waveform-track {
+            flex: 1; height: 48px; background: #f8fafc; border-radius: 8px; position: relative; overflow: hidden; cursor: pointer; border: 1px solid var(--border-color);
+        }
+        .waveform-visual {
+            width: 100%; height: 100%;
+            background-image: linear-gradient(90deg, #cbd5e1 2px, transparent 2px);
+            background-size: 5px 100%; opacity: 0.6;
+        }
+        .marker { position: absolute; top: 0; bottom: 0; width: 2px; z-index: 2; }
+        .marker.error { background: var(--danger-color); }
+        .marker.warning { background: var(--warning-color); }
+        .marker-label {
+            position: absolute; top: 4px; font-size: 10px; padding: 2px 6px; border-radius: 4px; color: white; font-weight: bold; transform: translateX(-50%); box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .progress-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 28.5%; background: rgba(94, 129, 244, 0.1); border-right: 2px solid var(--primary-color); pointer-events: none; }
+
+        /* --- Main Layout --- */
+        .main-wrapper { display: flex; flex: 1; overflow: hidden; }
+
+        /* Sidebar Nav */
+        .sidebar { width: 200px; background: #fff; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; flex-shrink: 0; }
+        .sidebar-header { padding: 20px; border-bottom: 1px solid var(--border-color); font-weight: 600; color: var(--text-sub); font-size: 12px; letter-spacing: 0.5px; text-transform: uppercase; }
+        .nav-list { padding: 12px; overflow-y: auto; flex: 1; }
+        .nav-item {
+            padding: 14px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 12px;
+            margin-bottom: 4px; color: var(--text-main); transition: all 0.2s; border: 1px solid transparent;
+        }
+        .nav-item:hover { background: #f8fafc; }
+        .nav-item.active { background: var(--primary-light); color: var(--primary-color); font-weight: 600; border-color: rgba(94, 129, 244, 0.1); }
+        
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+        .status-pass { background: var(--success-color); box-shadow: 0 0 0 2px var(--success-bg); }
+        .status-fail { background: var(--danger-color); box-shadow: 0 0 0 2px var(--danger-bg); }
+        .status-warn { background: var(--warning-color); box-shadow: 0 0 0 2px var(--warning-bg); }
+
+        /* Center Content */
+        .content { flex: 1; padding: 32px; overflow-y: auto; background: var(--bg-color); scroll-behavior: smooth; }
+        
+        .card {
+            background: var(--card-bg); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            margin-bottom: 24px; border: 1px solid var(--border-color); overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .card-header {
+            padding: 16px 24px; border-bottom: 1px solid var(--border-color); background: #fff;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .card-title { font-weight: 700; font-size: 16px; color: var(--text-main); }
+        .tag { padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+        .tag-pass { background: var(--success-bg); color: var(--success-color); }
+        .tag-fail { background: var(--danger-bg); color: var(--danger-color); }
+        .tag-warn { background: var(--warning-bg); color: var(--warning-color); }
+
+        /* Dialogue Rows */
+        .script-row { padding: 24px; border-bottom: 1px dashed var(--border-color); background: #fafafa; }
+        .transcript-row { padding: 24px; background: white; }
+        
+        .label { font-size: 11px; color: var(--text-sub); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 8px; display: block; text-transform: uppercase; }
+        .script-text { font-size: 15px; line-height: 1.6; color: #4b5563; white-space: pre-line; } 
+        
+        .dialogue-item { display: flex; gap: 16px; margin-bottom: 20px; align-items: flex-start; }
+        .avatar {
+            width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 700; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .avatar-agent { background: var(--primary-light); color: var(--primary-color); border: 1px solid rgba(94, 129, 244, 0.2); }
+        .avatar-customer { background: #fff7ed; color: #d97706; border: 1px solid rgba(217, 119, 6, 0.2); }
+        .avatar-sys { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+
+        .bubble-name { font-size: 12px; color: var(--text-sub); margin-bottom: 4px; display: block; font-weight: 500; }
+        .bubble-text { font-size: 15px; line-height: 1.6; color: var(--text-main); }
+
+        .hl-missing { text-decoration: line-through; color: #94a3b8; background: var(--danger-bg); padding: 0 4px; border-radius: 4px; text-decoration-color: var(--danger-color); }
+        .hl-negative { background: var(--warning-bg); color: #92400e; padding: 0 4px; border-radius: 4px; border-bottom: 2px solid var(--warning-color); }
+        .hl-error { background: var(--danger-bg); color: #c53030; padding: 0 4px; border-radius: 4px; border-bottom: 2px solid var(--danger-color); font-weight: bold; }
+
+        /* --- Right Panel (Audit Actions) --- */
+        .panel-right {
+            width: 340px; background: #fff; border-left: 1px solid var(--border-color); 
+            display: flex; flex-direction: column; flex-shrink: 0;
+            box-shadow: -4px 0 12px rgba(0,0,0,0.02);
+        }
+        .panel-header { padding: 24px; border-bottom: 1px solid var(--border-color); }
+        .panel-title { font-size: 16px; font-weight: 700; color: var(--text-main); margin-bottom: 4px; }
+        .panel-subtitle { font-size: 13px; color: var(--text-sub); }
+
+        .panel-body { padding: 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 24px; }
+        
+        /* Decision Cards */
+        .decision-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+        .decision-card {
+            border: 2px solid var(--border-color); border-radius: 10px; padding: 12px 16px;
+            cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 12px; background: #fff;
+        }
+        .decision-card:hover { border-color: #cbd5e1; background: #f8fafc; }
+        .decision-card.active { border-color: var(--primary-color); background: var(--primary-light); }
+        .decision-radio { 
+            width: 18px; height: 18px; border: 2px solid #cbd5e1; border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; 
+        }
+        .decision-card.active .decision-radio { border-color: var(--primary-color); background: #fff; }
+        .decision-card.active .decision-radio::after { content: ''; width: 10px; height: 10px; background: var(--primary-color); border-radius: 50%; }
+        
+        .d-title { font-weight: 600; font-size: 14px; color: var(--text-main); }
+        .decision-card.active .d-title { color: var(--primary-color); }
+
+        /* Error Checklist */
+        .check-container {
+            background: #fff5f5; border: 1px solid #ffe4e4; border-radius: 8px; padding: 16px;
+            display: none; /* JS toggles this */
+        }
+        .check-container.show { display: block; animation: fadeIn 0.3s; }
+        .check-title { font-size: 12px; font-weight: 700; color: #c53030; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .check-item { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; cursor: pointer; }
+        .check-item input { margin-top: 3px; accent-color: var(--danger-color); width: 16px; height: 16px; }
+        .check-text { font-size: 14px; color: #742a2a; line-height: 1.4; }
+
+        /* Quick Tags */
+        .quick-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+        .q-tag {
+            font-size: 12px; padding: 4px 10px; background: #f1f5f9; color: var(--text-sub); border-radius: 100px;
+            cursor: pointer; border: 1px solid transparent; transition: all 0.2s;
+        }
+        .q-tag:hover { background: #e2e8f0; color: var(--text-main); }
+
+        /* Comment Area */
+        .comment-area {
+            width: 100%; min-height: 100px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px;
+            resize: vertical; font-size: 14px; color: var(--text-main); outline: none; transition: border 0.2s;
+        }
+        .comment-area:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(94, 129, 244, 0.1); }
+
+        /* Footer Submit */
+        .panel-footer { padding: 20px 24px; border-top: 1px solid var(--border-color); background: #fff; }
+        .btn-submit {
+            background: var(--primary-color); color: white; border: none; height: 48px; width: 100%;
+            border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px;
+            box-shadow: 0 4px 12px rgba(94, 129, 244, 0.25); transition: background 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn-submit:hover { background: var(--primary-hover); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <div class="header-left">
+            <svg class="icon" style="color: var(--primary-color);" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <div class="header-title">保單質檢審查</div>
+            <div class="case-id">NO. 20260114-001</div>
+        </div>
+        <div class="risk-badge">
+            <svg class="icon-sm" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            高風險案件 (72分)
+        </div>
+    </header>
+
+    <div class="player-bar">
+        <button class="btn-play">
+            <svg class="icon" style="fill: white; stroke: none; width:20px; height:20px;" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </button>
+        <span style="font-family: monospace; font-weight: 600; color: var(--text-main); font-size:15px;">04:12 / 15:30</span>
+        <div class="waveform-track">
+            <div class="waveform-visual"></div>
+            <div class="progress-bar"></div>
+            <div class="marker error" style="left: 15%;"><div class="marker-label" style="background:var(--danger-color); bottom: 100%;">第2題</div></div>
+            <div class="marker error" style="left: 28%;"><div class="marker-label" style="background:var(--danger-color); bottom: 100%;">第3題</div></div>
+            <div class="marker warning" style="left: 65%;"><div class="marker-label" style="background:var(--warning-color); bottom: 100%;">第4題</div></div>
+        </div>
+    </div>
+
+    <div class="main-wrapper">
+        
+        <nav class="sidebar">
+            <div class="sidebar-header">Script Sections</div>
+            <div class="nav-list">
+                <div class="nav-item" onclick="document.querySelector('#q1').scrollIntoView()"><div class="status-dot status-pass"></div> 第1題</div>
+                <div class="nav-item active" onclick="document.querySelector('#q2').scrollIntoView()"><div class="status-dot status-fail"></div> 第2題</div>
+                <div class="nav-item" onclick="document.querySelector('#q3').scrollIntoView()"><div class="status-dot status-fail"></div> 第3題</div>
+                <div class="nav-item" onclick="document.querySelector('#q4').scrollIntoView()"><div class="status-dot status-warn"></div> 第4題</div>
+            </div>
+        </nav>
+
+        <main class="content">
+
+            <div id="q1" class="card" style="border-left: 4px solid var(--success-color);">
+                <div class="card-header">
+                    <div class="card-title">第1題</div>
+                    <div class="tag tag-pass">
+                        <svg class="icon-sm" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                        通過
+                    </div>
+                </div>
+                <div class="script-row">
+                    <span class="label">自行錄音題型</span>
+                    <div class="script-text">陳大明先生，您好！我是服務於三商美邦人壽的OOO，業務員登錄字號是OOOOOOO，並已獲得授權招攬。根據法令規定，於進行錄音方式記錄本次銷售過程，請問您是否同意？</div>
+                </div>
+                <div class="transcript-row">
+                    <span class="label">AI 轉錄比對</span>
+                    <div class="dialogue-item">
+                        <div class="avatar avatar-agent">業</div>
+                        <div class="bubble">
+                            <span class="bubble-name">業務員 - 林〇芳</span>
+                            <div class="bubble-text">陳大明先生，您好！我是服務於三商美邦人壽的林〇芳，業務員登錄字號是0105308576，並已獲得授權招攬。根據法令規定，於進行錄音方式記錄本次銷售過程，請問您是否同意？</div>
+                        </div>
+                    </div>
+                    <div class="dialogue-item">
+                        <div class="avatar avatar-customer">客</div>
+                        <div class="bubble">
+                            <span class="bubble-name">客戶 - 陳大明</span>
+                            <div class="bubble-text">同意。</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="q2" class="card" style="border-left: 4px solid var(--danger-color);">
+                <div class="card-header">
+                    <div class="card-title">第2題</div>
+                    <div class="tag tag-fail">
+                        <svg class="icon-sm" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        未依規定朗讀
+                    </div>
+                </div>
+                <div class="script-row">
+                    <span class="label">自行錄音題型</span>
+                    <div class="script-text">本次所辦理的是三商美邦人壽發行的投資型保險商品－金世紀利變額萬能壽險 A 型。以下將說明本商品內容及重要事項，請傾聽後表達一回答。</div>
+                </div>
+                <div class="transcript-row">
+                    <span class="label">AI 轉錄比對</span>
+                    <div class="dialogue-item">
+                        <div class="avatar avatar-agent">業</div>
+                        <div class="bubble">
+                            <span class="bubble-name">業務員 - 林〇芳</span>
+                            <div class="bubble-text"><span class="hl-error">跳過這題，這題不重要</span></div>
+                        </div>
+                    </div>
+                    <div class="dialogue-item">
+                        <div class="avatar avatar-customer">客</div>
+                        <div class="bubble">
+                            <span class="bubble-name">客戶 - 陳大明</span>
+                            <div class="bubble-text">喔，好。</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="q3" class="card" style="border-left: 4px solid var(--danger-color);">
+                <div class="card-header">
+                    <div class="card-title">第3題</div>
+                    <div class="tag tag-fail">
+                        <svg class="icon-sm" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        關鍵字缺失
+                    </div>
+                </div>
+                <div class="script-row">
+                    <span class="label">播稿題型</span>
+                    <div class="script-text">本保險『投資標的』是可以轉換的，請問需要為您說明【投資標的轉換】條款內容嗎？</div>
+                </div>
+                <div class="transcript-row">
+                    <span class="label">AI 轉錄比對</span>
+                    <div class="dialogue-item">
+                        <div class="avatar avatar-agent">業</div>
+                        <div class="bubble">
+                            <span class="bubble-name">業務員 - 林〇芳</span>
+                            <div class="bubble-text">本保險『投資標的』是可以轉換的，<span class="hl-missing">那就直接跳過</span>【投資標的轉換】條款內容好嗎？</div>
+                        </div>
+                    </div>
+                    <div class="dialogue-item">
+                        <div class="avatar avatar-customer">客</div>
+                        <div class="bubble">
+                            <span class="bubble-name">客戶 - 陳大明</span>
+                            <div class="bubble-text">喔，好啊。</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="q4" class="card" style="border-left: 4px solid var(--warning-color);">
+                <div class="card-header">
+                    <div class="card-title">第4題</div>
+                    <div class="tag tag-warn">
+                        <svg class="icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        疑似否定語意
+                    </div>
+                </div>
+                <div class="script-row">
+                    <span class="label">播稿題型</span>
+                    <div class="script-text">有關【投資標的轉換】提供以下轉換方式：
+停利機制：當所持有之投資標的報酬率達到您所設定之停利點時，將全數金額轉出至您所指定 之投資標的；若未指定，則轉出至「停泊標的」。
+申請轉換：可設定將持有之「一般投資標的」或「停泊標的」轉出至所指定之「一般投資標的」。
+以上說明，請問您清楚嗎？</div>
+                </div>
+                <div class="transcript-row">
+                    <span class="label">AI 轉錄比對</span>
+                    <div class="dialogue-item">
+                        <div class="avatar avatar-sys">機</div>
+                        <div class="bubble">
+                            <span class="bubble-name">系統播音</span>
+                            <div class="bubble-text">有關【投資標的轉換】提供以下轉換方式... (系統語音播報中) ...以上說明，請問您清楚嗎？</div>
+                        </div>
+                    </div>
+                    <div class="dialogue-item">
+                        <div class="avatar avatar-customer">客</div>
+                        <div class="bubble">
+                            <span class="bubble-name">客戶 - 陳大明</span>
+                            <div class="bubble-text">唉唷，聽得頭很痛，<span class="hl-negative">其實我不太清楚</span>，隨便啦。</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <aside class="panel-right">
+            <div class="panel-header">
+                <div class="panel-title">人工審查判定</div>
+                <div class="panel-subtitle">請確認 AI 標記之異常項目</div>
+            </div>
+
+            <div class="panel-body">
+                
+                <div style="margin-bottom: 8px;">
+                    <span class="label" style="margin-bottom:12px;">判定結果</span>
+                    <div class="decision-grid">
+                        <div class="decision-card" onclick="selectDecision(this, 'pass')">
+                            <div class="decision-radio"></div>
+                            <span class="d-title">通過 (Pass)</span>
+                        </div>
+                        <div class="decision-card active" onclick="selectDecision(this, 'review')">
+                            <div class="decision-radio"></div>
+                            <span class="d-title">照會 / 需補正</span>
+                        </div>
+                        <div class="decision-card" onclick="selectDecision(this, 'reject')">
+                            <div class="decision-radio"></div>
+                            <span class="d-title">不合格 / 退件</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="errorChecklist" class="check-container show">
+                    <div class="check-title">異常項目確認</div>
+                    <label class="check-item">
+                        <input type="checkbox" checked>
+                        <span class="check-text">第2題：業務員違規跳過說明</span>
+                    </label>
+                    <label class="check-item">
+                        <input type="checkbox" checked>
+                        <span class="check-text">第3題：未依規定詢問客戶意願</span>
+                    </label>
+                    <label class="check-item">
+                        <input type="checkbox" checked>
+                        <span class="check-text">第4題：客戶明確表達「不清楚」</span>
+                    </label>
+                </div>
+
+                <div>
+                    <span class="label">審查備註</span>
+                    <textarea class="comment-area" id="commentBox">第2題業務員直接跳過產品說明，第3題未正確詢問條款說明意願，且第4題客戶反應不清楚內容，請重新錄製相關段落。</textarea>
+                    
+                    <div class="quick-tags">
+                        <span class="q-tag" onclick="addTag('關鍵字缺失')">+ 關鍵字缺失</span>
+                        <span class="q-tag" onclick="addTag('客戶否定')">+ 客戶否定</span>
+                        <span class="q-tag" onclick="addTag('背景雜音')">+ 背景雜音</span>
+                        <span class="q-tag" onclick="addTag('語速過快')">+ 語速過快</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="panel-footer">
+                <button class="btn-submit">
+                    <svg class="icon-sm" viewBox="0 0 24 24" style="stroke-width:3;"><polyline points="20 6 9 17 4 12"/></svg>
+                    提交審查結果
+                </button>
+            </div>
+        </aside>
+
+    </div>
+
+    <script>
+        // JS 模擬互動邏輯
+        function selectDecision(element, type) {
+            // 1. UI 狀態切換
+            document.querySelectorAll('.decision-card').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+
+            // 2. 邏輯連動
+            const checklist = document.getElementById('errorChecklist');
+            const commentBox = document.getElementById('commentBox');
+
+            if (type === 'pass') {
+                checklist.classList.remove('show');
+                commentBox.value = '審查通過，符合規範。';
+            } else {
+                checklist.classList.add('show');
+                if (commentBox.value === '審查通過，符合規範。') commentBox.value = '';
+            }
+        }
+
+        function addTag(text) {
+            const box = document.getElementById('commentBox');
+            if (box.value.length > 0) box.value += '，';
+            box.value += text;
+        }
+
+        // ========== Web Speech API 播放功能 ==========
+
+        // 對話資料結構
+        const dialogues = [
+            // 第1題
+            {
+                questionId: 'q1',
+                speaker: 'agent',
+                name: '業務員',
+                text: '陳大明先生，您好！我是服務於三商美邦人壽的林小芳，業務員登錄字號是0105308576，並已獲得授權招攬。根據法令規定，於進行錄音方式記錄本次銷售過程，請問您是否同意？'
+            },
+            {
+                questionId: 'q1',
+                speaker: 'customer',
+                name: '客戶',
+                text: '同意。'
+            },
+            // 第2題
+            {
+                questionId: 'q2',
+                speaker: 'agent',
+                name: '業務員',
+                text: '跳過這題，這題不重要'
+            },
+            {
+                questionId: 'q2',
+                speaker: 'customer',
+                name: '客戶',
+                text: '喔，好。'
+            },
+            // 第3題
+            {
+                questionId: 'q3',
+                speaker: 'agent',
+                name: '業務員',
+                text: '本保險投資標的是可以轉換的，那就直接跳過投資標的轉換條款內容好嗎？'
+            },
+            {
+                questionId: 'q3',
+                speaker: 'customer',
+                name: '客戶',
+                text: '喔，好啊。'
+            },
+            // 第4題
+            {
+                questionId: 'q4',
+                speaker: 'system',
+                name: '系統播音',
+                text: '有關投資標的轉換提供以下轉換方式：停利機制，當所持有之投資標的報酬率達到您所設定之停利點時，將全數金額轉出至您所指定之投資標的；若未指定，則轉出至停泊標的。申請轉換，可設定將持有之一般投資標的或停泊標的轉出至所指定之一般投資標的。以上說明，請問您清楚嗎？'
+            },
+            {
+                questionId: 'q4',
+                speaker: 'customer',
+                name: '客戶',
+                text: '唉唷，聽得頭很痛，其實我不太清楚，隨便啦。'
+            }
+        ];
+
+        // 播放狀態
+        let isPlaying = false;
+        let currentDialogueIndex = 0;
+        let speechSynth = window.speechSynthesis;
+        let currentUtterance = null;
+        let totalDuration = 0;
+        let elapsedTime = 0;
+        let progressTimer = null;
+
+        // 預估每段對話時長（基於字數）
+        function estimateDuration(text) {
+            // 中文約每秒 3-4 個字
+            return (text.length / 3.5) * 1000;
+        }
+
+        // 計算總時長
+        function calculateTotalDuration() {
+            totalDuration = dialogues.reduce((sum, d) => sum + estimateDuration(d.text), 0);
+            updateTimeDisplay();
+        }
+
+        // 格式化時間
+        function formatTime(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        // 更新時間顯示
+        function updateTimeDisplay() {
+            const timeDisplay = document.querySelector('.player-bar span[style*="monospace"]');
+            if (timeDisplay) {
+                timeDisplay.textContent = `${formatTime(elapsedTime)} / ${formatTime(totalDuration)}`;
+            }
+        }
+
+        // 更新進度條
+        function updateProgressBar() {
+            const progressBar = document.querySelector('.progress-bar');
+            if (progressBar && totalDuration > 0) {
+                const percentage = (elapsedTime / totalDuration) * 100;
+                progressBar.style.width = `${percentage}%`;
+            }
+        }
+
+        // 高亮當前對話
+        function highlightCurrentDialogue(questionId) {
+            // 移除所有高亮
+            document.querySelectorAll('.dialogue-item').forEach(el => {
+                el.style.background = '';
+                el.style.borderRadius = '';
+                el.style.padding = '';
+                el.style.margin = '';
+            });
+
+            // 滾動到當前題目
+            const questionCard = document.getElementById(questionId);
+            if (questionCard) {
+                questionCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            // 更新左側導航
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            const navItem = document.querySelector(`.nav-item[onclick*="${questionId}"]`);
+            if (navItem) {
+                navItem.classList.add('active');
+            }
+        }
+
+        // 獲取語音（優先選擇中文）
+        function getChineseVoice() {
+            const voices = speechSynth.getVoices();
+            // 優先找台灣中文
+            let voice = voices.find(v => v.lang === 'zh-TW');
+            // 其次找中文
+            if (!voice) voice = voices.find(v => v.lang.startsWith('zh'));
+            // 最後用預設
+            return voice || voices[0];
+        }
+
+        // 播放單一對話
+        function speakDialogue(index) {
+            if (index >= dialogues.length) {
+                stopPlayback();
+                return;
+            }
+
+            currentDialogueIndex = index;
+            const dialogue = dialogues[index];
+
+            // 高亮當前題目
+            highlightCurrentDialogue(dialogue.questionId);
+
+            // 建立語音
+            currentUtterance = new SpeechSynthesisUtterance(dialogue.text);
+            currentUtterance.voice = getChineseVoice();
+            currentUtterance.rate = 1.0;
+            currentUtterance.pitch = dialogue.speaker === 'customer' ? 1.2 : 1.0;
+
+            // 根據角色調整音調
+            if (dialogue.speaker === 'agent') {
+                currentUtterance.pitch = 0.9;
+            } else if (dialogue.speaker === 'customer') {
+                currentUtterance.pitch = 1.3;
+            } else if (dialogue.speaker === 'system') {
+                currentUtterance.rate = 0.9;
+            }
+
+            // 語音結束後播放下一段
+            currentUtterance.onend = () => {
+                if (isPlaying) {
+                    speakDialogue(index + 1);
+                }
+            };
+
+            speechSynth.speak(currentUtterance);
+        }
+
+        // 開始播放
+        function startPlayback() {
+            isPlaying = true;
+            updatePlayButton();
+
+            // 開始進度計時器
+            progressTimer = setInterval(() => {
+                elapsedTime += 100;
+                updateTimeDisplay();
+                updateProgressBar();
+            }, 100);
+
+            speakDialogue(currentDialogueIndex);
+        }
+
+        // 暫停播放
+        function pausePlayback() {
+            isPlaying = false;
+            speechSynth.pause();
+            updatePlayButton();
+
+            if (progressTimer) {
+                clearInterval(progressTimer);
+                progressTimer = null;
+            }
+        }
+
+        // 繼續播放
+        function resumePlayback() {
+            isPlaying = true;
+            speechSynth.resume();
+            updatePlayButton();
+
+            progressTimer = setInterval(() => {
+                elapsedTime += 100;
+                updateTimeDisplay();
+                updateProgressBar();
+            }, 100);
+        }
+
+        // 停止播放
+        function stopPlayback() {
+            isPlaying = false;
+            speechSynth.cancel();
+            currentDialogueIndex = 0;
+            elapsedTime = 0;
+            updatePlayButton();
+            updateTimeDisplay();
+            updateProgressBar();
+
+            if (progressTimer) {
+                clearInterval(progressTimer);
+                progressTimer = null;
+            }
+        }
+
+        // 更新播放按鈕圖示
+        function updatePlayButton() {
+            const btn = document.querySelector('.btn-play');
+            if (isPlaying) {
+                btn.innerHTML = `<svg class="icon" style="fill: white; stroke: none; width:20px; height:20px;" viewBox="0 0 24 24">
+                    <rect x="6" y="4" width="4" height="16"/>
+                    <rect x="14" y="4" width="4" height="16"/>
+                </svg>`;
+            } else {
+                btn.innerHTML = `<svg class="icon" style="fill: white; stroke: none; width:20px; height:20px;" viewBox="0 0 24 24">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>`;
+            }
+        }
+
+        // 切換播放/暫停
+        function togglePlayback() {
+            if (!isPlaying) {
+                if (speechSynth.paused) {
+                    resumePlayback();
+                } else {
+                    startPlayback();
+                }
+            } else {
+                pausePlayback();
+            }
+        }
+
+        // 點擊波形跳轉
+        function seekToPosition(event) {
+            const waveform = event.currentTarget;
+            const rect = waveform.getBoundingClientRect();
+            const clickX = event.clientX - rect.left;
+            const percentage = clickX / rect.width;
+
+            // 計算要跳轉到哪個對話
+            let accumulatedDuration = 0;
+            const targetTime = percentage * totalDuration;
+
+            for (let i = 0; i < dialogues.length; i++) {
+                const duration = estimateDuration(dialogues[i].text);
+                if (accumulatedDuration + duration > targetTime) {
+                    // 停止當前播放並跳到這個位置
+                    speechSynth.cancel();
+                    currentDialogueIndex = i;
+                    elapsedTime = accumulatedDuration;
+                    updateTimeDisplay();
+                    updateProgressBar();
+
+                    if (isPlaying) {
+                        speakDialogue(i);
+                    } else {
+                        highlightCurrentDialogue(dialogues[i].questionId);
+                    }
+                    break;
+                }
+                accumulatedDuration += duration;
+            }
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            // 等待語音載入
+            speechSynth.onvoiceschanged = () => {
+                calculateTotalDuration();
+            };
+
+            // 如果語音已載入
+            if (speechSynth.getVoices().length > 0) {
+                calculateTotalDuration();
+            }
+
+            // 綁定播放按鈕
+            document.querySelector('.btn-play').addEventListener('click', togglePlayback);
+
+            // 綁定波形點擊
+            document.querySelector('.waveform-track').addEventListener('click', seekToPosition);
+        });
+    </script>
+</body>
+</html>
