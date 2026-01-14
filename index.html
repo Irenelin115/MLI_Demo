@@ -242,10 +242,10 @@
         <nav class="sidebar">
             <div class="sidebar-header">Script Sections</div>
             <div class="nav-list">
-                <div class="nav-item" onclick="document.querySelector('#q1').scrollIntoView()"><div class="status-dot status-pass"></div> 第1題</div>
-                <div class="nav-item active" onclick="document.querySelector('#q2').scrollIntoView()"><div class="status-dot status-fail"></div> 第2題</div>
-                <div class="nav-item" onclick="document.querySelector('#q3').scrollIntoView()"><div class="status-dot status-fail"></div> 第3題</div>
-                <div class="nav-item" onclick="document.querySelector('#q4').scrollIntoView()"><div class="status-dot status-warn"></div> 第4題</div>
+                <div class="nav-item active" data-target="q1" onclick="navigateToQuestion(this, 'q1')"><div class="status-dot status-pass"></div> 第1題</div>
+                <div class="nav-item" data-target="q2" onclick="navigateToQuestion(this, 'q2')"><div class="status-dot status-fail"></div> 第2題</div>
+                <div class="nav-item" data-target="q3" onclick="navigateToQuestion(this, 'q3')"><div class="status-dot status-fail"></div> 第3題</div>
+                <div class="nav-item" data-target="q4" onclick="navigateToQuestion(this, 'q4')"><div class="status-dot status-warn"></div> 第4題</div>
             </div>
         </nav>
 
@@ -469,6 +469,21 @@
             const box = document.getElementById('commentBox');
             if (box.value.length > 0) box.value += '，';
             box.value += text;
+        }
+
+        // ========== 左側導航功能 ==========
+        function navigateToQuestion(element, questionId) {
+            // 1. 移除所有 nav-item 的 active 狀態
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+
+            // 2. 為當前點擊的項目加上 active
+            element.classList.add('active');
+
+            // 3. 平滑捲動到對應題目
+            const targetCard = document.getElementById(questionId);
+            if (targetCard) {
+                targetCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         }
 
         // ========== Web Speech API 播放功能 ==========
